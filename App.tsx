@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Task, 
   TaskType, 
@@ -7,12 +7,15 @@ import {
   SystemState, 
   Chest, 
   ChestType, 
-  Reward 
+  Reward,
+  TaskTypeConfig,
+  TimeWindow
 } from './types';
-import { CONFIG, MOCK_TASKS_DATA } from './constants';
+import { CONFIG, MOCK_TASKS_DATA, DEFAULT_TASK_TYPES, DEFAULT_TIME_WINDOWS } from './constants';
 import { SystemService } from './services/systemService';
 import { MainActionCard } from './components/MainActionCard';
 import { StateOverlays } from './components/StateOverlays';
+import { SystemSettings } from './components/SystemSettings';
 import { Zap, Settings, Box, Lock } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -29,49 +32,95 @@ const createInitialState = (): UserState => ({
   lastActive: Date.now(),
 });
 
-const generateTask = (type: TaskType = TaskType.DAILY): Task => {
-  const template = MOCK_TASKS_DATA[Math.floor(Math.random() * MOCK_TASKS_DATA.length)];
-  const isRecovery = type === TaskType.RECOVERY;
-  return {
-    id: generateId(),
-    title: isRecovery ? `补救: ${template.title}` : template.title,
-    type: type,
-    difficulty: template.diff as 1|2|3|4|5,
-    baseReward: {
-      wpDelta: (template.diff * 5) * (isRecovery ? CONFIG.RECOVERY_REWARD_BOOST : 1),
-      expDelta: template.diff * 10,
-      multiplier: 1,
-    },
-    status: TaskStatus.PENDING,
-    timeLimitSeconds: type === TaskType.EMERGENCY ? 300 : undefined,
-  };
-};
-
 const App: React.FC = () => {
   const [user, setUser] = useState<UserState>(createInitialState());
   const [systemState, setSystemState] = useState<SystemState>(SystemState.IDLE);
+  
+  // Addiction Engine Configs (Persisted in state for MVP editing)
+  const [taskTypes, setTaskTypes] = useState<TaskTypeConfig[]>(DEFAULT_TASK_TYPES);
+  const [timeWindows, setTimeWindows] = useState<TimeWindow[]>(DEFAULT_TIME_WINDOWS);
+  const [activeWindow, setActiveWindow] = useState<TimeWindow | undefined>(undefined);
+
   const [tasks, setTasks] = useState<Task[]>([]);
-  // We use activeTask to determine what is shown on the Main Card
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   
   // Deliberately stuck progress (9/10)
   const [chests, setChests] = useState<Chest[]>([
-    { id: '1', type: ChestType.SMALL, progress: 4, required: 5, isReady: false }, // Stuck at 80%
-    { id: '2', type: ChestType.MEDIUM, progress: 9, required: 10, isReady: false } // Stuck at 90%
+    { id: '1', type: ChestType.SMALL, progress: 4, required: 5, isReady: false }, 
+    { id: '2', type: ChestType.MEDIUM, progress: 9, required: 10, isReady: false } 
   ]);
   const [lastReward, setLastReward] = useState<Reward | null>(null);
   const [isRageMode, setIsRageMode] = useState(false);
   const rageTimerRef = useRef<number | null>(null);
 
+  // --- Addiction Engine Logic ---
+
+  const checkActiveWindow = useCallback(() => {
+      const now = new Date();
+      const currentHour = now.getHours();
+
+      const found = timeWindows.find(window => {
+          if (window.startHour < window.endHour) {
+              // Standard window (e.g., 09:00 - 17:00)
+              return currentHour >= window.startHour && currentHour < window.endHour;
+          } else {
+              // Cross-midnight window (e.g., 22:00 - 06:00)
+              return currentHour >= window.startHour || currentHour < window.endHour;
+          }
+      });
+      
+      // Visual Feedback if window changed
+      if (found && activeWindow?.id !== found.id) {
+          // Subtle notification could go here "Entered Deep Work Mode"
+          SystemService.updateTitle(0); // Reset title
+      }
+      setActiveWindow(found);
+  }, [timeWindows, activeWindow]);
+
+  const generateContextAwareTask = useCallback((): Task => {
+    // 1. Determine allowed types based on active window
+    let allowedTypeIds = activeWindow ? activeWindow.allowedTypes : taskTypes.map(t => t.id);
+    if (allowedTypeIds.length === 0) allowedTypeIds = taskTypes.map(t => t.id); // Fallback
+
+    // 2. Pick a random allowed type
+    const selectedTypeId = allowedTypeIds[Math.floor(Math.random() * allowedTypeIds.length)];
+    const selectedConfig = taskTypes.find(t => t.id === selectedTypeId) || taskTypes[0];
+
+    // 3. Pick a random template (Mock data for now, ideally strictly typed to category)
+    const template = MOCK_TASKS_DATA[Math.floor(Math.random() * MOCK_TASKS_DATA.length)];
+
+    return {
+        id: generateId(),
+        title: template.title,
+        type: TaskType.DAILY, // Legacy field
+        typeConfigId: selectedConfig.id, // New field
+        difficulty: template.diff as 1|2|3|4|5,
+        baseReward: {
+            wpDelta: Math.round(template.diff * 5 * selectedConfig.baseMultiplier),
+            expDelta: Math.round(template.diff * 10 * selectedConfig.baseMultiplier),
+            multiplier: selectedConfig.baseMultiplier
+        },
+        timeLimitSeconds: selectedConfig.defaultTimeSeconds,
+        status: TaskStatus.PENDING
+    };
+  }, [activeWindow, taskTypes]);
+
+  // --- Effects ---
+
   useEffect(() => {
-    // Initial Population
-    replenishTasks();
+    // Initial Setup
     SystemService.requestPermissions();
+    checkActiveWindow();
     
-    // Simulate Daily Decay / Check
-    const now = Date.now();
-    if (new Date(now).getDate() !== new Date(user.lastActive).getDate()) {
-       handleDailyDecay();
+    // Check Time Window every minute
+    const timeCheckInterval = setInterval(checkActiveWindow, 60000);
+
+    // Initial Task Population
+    if (tasks.length === 0) {
+        // Need to wait for checkActiveWindow to run once technically, but it's sync here
+        const initialTasks = [generateContextAwareTask(), generateContextAwareTask()];
+        setTasks(initialTasks);
+        setActiveTask(initialTasks[0]);
     }
 
     // Rage Mode Loop
@@ -81,39 +130,21 @@ const App: React.FC = () => {
         }
     }, 60000);
 
-    return () => clearInterval(rageLoop);
+    return () => {
+        clearInterval(timeCheckInterval);
+        clearInterval(rageLoop);
+    };
   }, []);
 
-  // Ensure we always have tasks, and select the most important one
+  // Ensure active task always exists and matches context
   useEffect(() => {
-    if (tasks.length === 0) return;
-    
-    // Priority Sort: Emergency > Limited > Recovery > Daily
-    const sorted = [...tasks].sort((a, b) => {
-        const priority = { [TaskType.EMERGENCY]: 4, [TaskType.LIMITED]: 3, [TaskType.RECOVERY]: 2, [TaskType.DAILY]: 1 };
-        return priority[b.type] - priority[a.type];
-    });
-    
-    // Auto-select top task if none is active or if we are in IDLE
-    if (systemState === SystemState.IDLE) {
-        setActiveTask(sorted[0]);
+    if (tasks.length === 0 && taskTypes.length > 0) {
+        const newTask = generateContextAwareTask();
+        setTasks([newTask]);
+        setActiveTask(newTask);
     }
-  }, [tasks, systemState]);
+  }, [tasks, generateContextAwareTask, taskTypes]);
 
-  const replenishTasks = () => {
-    setTasks(prev => {
-        if (prev.length > 2) return prev;
-        return [...prev, generateTask(), generateTask()];
-    });
-  };
-
-  const handleDailyDecay = () => {
-    // Logic as before...
-    setUser(prev => ({ ...prev, wp: Math.max(1, prev.wp - CONFIG.WP_DECAY_DAILY), lastActive: Date.now() }));
-    // Convert old tasks
-    setTasks(prev => prev.map(t => ({...t, type: TaskType.RECOVERY, title: `补救: ${t.title}`})));
-    SystemService.notify("新的一天", "状态已更新。补救任务已生成。", "system");
-  };
 
   const triggerRageMode = () => {
     setIsRageMode(true);
@@ -130,7 +161,6 @@ const App: React.FC = () => {
   const onExecuteClick = () => {
     if (!activeTask) return;
     setSystemState(SystemState.ACCEPT);
-    // Instant transition to execute for "Addictive" feel - skip confirm dialog
     setTimeout(() => {
         setSystemState(SystemState.EXECUTE);
         SystemService.updateTitle(1);
@@ -139,14 +169,18 @@ const App: React.FC = () => {
 
   const onCompleteTask = () => {
     if (!activeTask) return;
+    
+    // Calculate Multipliers
     const rageMult = isRageMode ? CONFIG.RAGE_WINDOW_MULTIPLIER : 1;
+    const windowMult = activeWindow ? activeWindow.multiplier : 1.0;
+    const totalMult = rageMult * windowMult;
+
     const finalReward: Reward = {
-      wpDelta: Math.round(activeTask.baseReward.wpDelta * rageMult),
-      expDelta: Math.round(activeTask.baseReward.expDelta * rageMult),
-      multiplier: rageMult
+      wpDelta: Math.round(activeTask.baseReward.wpDelta * totalMult),
+      expDelta: Math.round(activeTask.baseReward.expDelta * totalMult),
+      multiplier: totalMult
     };
     
-    // Pause for 300ms before showing reward (Addictive Formula)
     setTimeout(() => {
         setLastReward(finalReward);
         setSystemState(SystemState.FEEDBACK);
@@ -157,18 +191,24 @@ const App: React.FC = () => {
             ...prev,
             wp: prev.wp + finalReward.wpDelta,
             exp: prev.exp + finalReward.expDelta,
-            level: prev.level + Math.floor((prev.exp + finalReward.expDelta)/prev.maxExp), // Simple level up
+            level: prev.level + Math.floor((prev.exp + finalReward.expDelta)/prev.maxExp),
             streak: prev.streak + 1,
             combo: prev.combo + 1,
         }));
 
-        // Remove completed task
-        setTasks(prev => prev.filter(t => t.id !== activeTask.id));
+        // Remove completed task and generate new one immediately
+        setTasks(prev => {
+            const remaining = prev.filter(t => t.id !== activeTask.id);
+            return [...remaining, generateContextAwareTask()]; 
+        });
         
-        // Update Chests (Fake progress stuck at end)
+        // Auto-select next task happens via effect, but let's be safe
+        const nextTask = generateContextAwareTask();
+        setActiveTask(nextTask);
+
+        // Update Chests
         setChests(prev => prev.map(c => ({
             ...c,
-            // Stick at required - 1 to force "Just one more" feeling unless we want to let them open
             progress: Math.min(c.required - 1, c.progress + 1) 
         })));
     }, 300);
@@ -176,21 +216,20 @@ const App: React.FC = () => {
 
   const onMomentumContinue = () => {
      setSystemState(SystemState.IDLE);
-     replenishTasks();
-  };
-
-  const onRequestRest = () => {
-      // Trigger the Exit Hook UI
-      setSystemState(SystemState.EXIT_HOOK);
-  };
-
-  const onRealExit = () => {
-      setSystemState(SystemState.IDLE);
-      // In a real app, this might minimize or do nothing.
   };
 
   const onCancelExecute = () => {
       setSystemState(SystemState.IDLE);
+  };
+
+  // --- Config Updaters ---
+  const handleUpdateTaskType = (id: string, updates: Partial<TaskTypeConfig>) => {
+      setTaskTypes(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  const handleUpdateTimeWindow = (id: string, updates: Partial<TimeWindow>) => {
+      setTimeWindows(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w));
+      checkActiveWindow(); // Re-check immediately
   };
 
   return (
@@ -209,9 +248,14 @@ const App: React.FC = () => {
                  </div>
              </div>
          </div>
-         <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-             <Zap size={16} className="text-yellow-400 fill-yellow-400" />
-             <span className="font-black text-xl text-yellow-100">{user.wp}</span>
+         <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+                 <Zap size={16} className="text-yellow-400 fill-yellow-400" />
+                 <span className="font-black text-xl text-yellow-100">{user.wp}</span>
+             </div>
+             <button onClick={() => setSystemState(SystemState.SETTINGS)} className="text-slate-400 hover:text-white">
+                 <Settings size={24} />
+             </button>
          </div>
       </header>
 
@@ -222,17 +266,14 @@ const App: React.FC = () => {
                  <MainActionCard 
                     task={activeTask} 
                     onExecute={onExecuteClick} 
-                    isRageMode={isRageMode} 
+                    isRageMode={isRageMode}
+                    activeWindow={activeWindow}
+                    taskTypeConfig={taskTypes.find(t => t.id === activeTask.typeConfigId)}
                  />
              </div>
           ) : (
-             <div className="text-slate-500 font-bold animate-pulse">正在生成新任务...</div>
+             <div className="text-slate-500 font-bold animate-pulse">正在匹配当前时段任务...</div>
           )}
-
-          {/* Secondary Task Preview (Blurred / Background) */}
-          <div className="absolute bottom-4 w-full max-w-md opacity-30 scale-90 translate-y-1/2 blur-[2px] pointer-events-none">
-             <div className="bg-slate-800 h-32 rounded-3xl border-2 border-slate-700"></div>
-          </div>
       </main>
 
       {/* 3. "Almost There" Footer */}
@@ -240,7 +281,7 @@ const App: React.FC = () => {
           <div className="max-w-md mx-auto">
              <div className="flex justify-between items-end mb-4">
                 <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">宝箱进度 (只差一点!)</h3>
-                <button onClick={onRequestRest} className="text-xs text-slate-600 font-bold hover:text-white transition-colors">休息一下</button>
+                <button onClick={() => setSystemState(SystemState.EXIT_HOOK)} className="text-xs text-slate-600 font-bold hover:text-white transition-colors">休息一下</button>
              </div>
              
              {/* Chests stuck at 90% */}
@@ -270,13 +311,23 @@ const App: React.FC = () => {
       <StateOverlays 
         state={systemState}
         activeTask={activeTask}
-        onConfirm={() => {}} // Not used in this flow
+        onConfirm={() => {}} 
         onCancel={onCancelExecute}
         onComplete={onCompleteTask}
         onMomentumContinue={onMomentumContinue}
-        onMomentumExit={onRealExit}
+        onMomentumExit={() => setSystemState(SystemState.IDLE)}
         lastReward={lastReward}
       />
+
+      {systemState === SystemState.SETTINGS && (
+          <SystemSettings 
+            taskTypes={taskTypes}
+            timeWindows={timeWindows}
+            onClose={() => setSystemState(SystemState.IDLE)}
+            onUpdateTaskType={handleUpdateTaskType}
+            onUpdateTimeWindow={handleUpdateTimeWindow}
+          />
+      )}
     </div>
   );
 };

@@ -20,7 +20,8 @@ export enum SystemState {
   EXECUTE = 'Execute',
   FEEDBACK = 'Feedback',
   MOMENTUM = 'Momentum',
-  EXIT_HOOK = 'ExitHook'
+  EXIT_HOOK = 'ExitHook',
+  SETTINGS = 'Settings'
 }
 
 export enum ChestType {
@@ -36,10 +37,33 @@ export interface Reward {
   unlocks?: string[];
 }
 
+// New: Configurable Task Type Definition
+export interface TaskTypeConfig {
+  id: string; // e.g., 'startup', 'deep_work'
+  name: string; // e.g., '启动型', '攻坚型'
+  colorTheme: 'blue' | 'red' | 'orange' | 'purple' | 'green';
+  baseMultiplier: number;
+  defaultTimeSeconds: number;
+  actionVerbs: string[]; // ["立即启动", "马上执行"]
+}
+
+// New: Time Window Definition
+export interface TimeWindow {
+  id: string;
+  name: string; // e.g., '晨间启动', '深夜修补'
+  startHour: number; // 0-23
+  endHour: number;   // 0-23
+  multiplier: number;
+  allowedTypes: string[]; // IDs of TaskTypeConfig
+  theme: 'sunrise' | 'day' | 'sunset' | 'midnight';
+  description: string;
+}
+
 export interface Task {
   id: string;
   title: string;
-  type: TaskType;
+  type: TaskType; // Keeping original enum for backward compat, but logic uses config
+  typeConfigId?: string; // Link to new config
   difficulty: 1 | 2 | 3 | 4 | 5;
   baseReward: Reward;
   timeLimitSeconds?: number;
