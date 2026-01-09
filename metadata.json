@@ -1,0 +1,8 @@
+{
+  "name": "习惯大作战",
+  "description": "一个模仿皇室战争风格的高频行为驱动系统，采用游戏化和状态机架构。",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
