@@ -2,11 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Task, TimeWindow, TaskTypeConfig } from '../types';
 import { ClashButton } from './ClashButton';
-import { Zap, Flame, Clock, Sparkles } from 'lucide-react';
+import { Zap, Flame, Sparkles, SkipForward } from 'lucide-react';
 
 interface MainActionCardProps {
   task: Task;
   onExecute: () => void;
+  onPostpone: () => void;
   isRageMode: boolean;
   activeWindow?: TimeWindow;
   taskTypeConfig?: TaskTypeConfig;
@@ -15,15 +16,13 @@ interface MainActionCardProps {
 export const MainActionCard: React.FC<MainActionCardProps> = ({ 
   task, 
   onExecute, 
+  onPostpone,
   isRageMode,
   activeWindow,
   taskTypeConfig
 }) => {
   
   const getGradient = () => {
-    // Priority: Rage Mode -> Active Window Theme -> Default Task Color
-    if (isRageMode) return 'from-red-900 via-red-800 to-slate-900 border-red-500';
-    
     if (activeWindow) {
         switch (activeWindow.theme) {
             case 'sunrise': return 'from-orange-600 via-amber-700 to-slate-900 border-orange-400';
@@ -32,117 +31,68 @@ export const MainActionCard: React.FC<MainActionCardProps> = ({
             case 'midnight': return 'from-indigo-900 via-slate-800 to-black border-indigo-500';
         }
     }
-    
-    // Fallback based on config color
-    if (taskTypeConfig) {
-        switch(taskTypeConfig.colorTheme) {
-            case 'green': return 'from-green-800 via-emerald-900 to-slate-900 border-green-500';
-            case 'purple': return 'from-purple-900 via-indigo-900 to-slate-900 border-purple-500';
-            case 'orange': return 'from-orange-800 via-amber-900 to-slate-900 border-orange-500';
-            default: return 'from-blue-900 via-slate-800 to-slate-900 border-blue-500';
-        }
-    }
-
     return 'from-blue-900 via-slate-800 to-slate-900 border-blue-500';
-  };
-
-  const getActionVerb = () => {
-    if (taskTypeConfig?.actionVerbs && taskTypeConfig.actionVerbs.length > 0) {
-        return taskTypeConfig.actionVerbs[Math.floor(Math.random() * taskTypeConfig.actionVerbs.length)];
-    }
-    return "立即执行";
-  };
-
-  const getWindowLabel = () => {
-      if (isRageMode) return "狂暴模式";
-      if (activeWindow) return activeWindow.name;
-      return "常规时段";
   };
 
   return (
     <motion.div 
       layoutId="main-card"
       className={`
-        w-full h-[60vh] rounded-[32px] p-6 relative overflow-hidden flex flex-col justify-between
+        w-full h-full max-w-sm rounded-[32px] p-5 relative overflow-hidden flex flex-col justify-between
         bg-gradient-to-br ${getGradient()}
-        border-4 shadow-[0_0_40px_rgba(0,0,0,0.5)]
-        transition-colors duration-500
+        border-4 shadow-2xl transition-all duration-500
       `}
     >
-      {/* Background Particles/Texture */}
-      <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay"></div>
+      <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none"></div>
       
-      {/* Top Section: Status Bar (Time Window) */}
-      <div className="relative z-10 w-full">
-        <div className={`
-           flex justify-between items-center px-4 py-2 rounded-full border border-white/10 backdrop-blur-md
-           ${isRageMode ? 'bg-red-900/50' : 'bg-black/30'}
-        `}>
-            <div className="flex items-center gap-2">
-                {isRageMode ? <Flame size={18} className="text-yellow-400 animate-pulse" /> : <Sparkles size={18} className="text-yellow-400" />}
-                <span className="text-white font-bold text-sm tracking-wide uppercase shadow-sm">
-                    {getWindowLabel()}
+      {/* Top Window Info */}
+      <div className="relative z-10">
+        <div className="flex justify-between items-center px-3 py-1.5 rounded-full bg-black/30 border border-white/10">
+            <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-yellow-400" />
+                <span className="text-white font-black text-[10px] uppercase tracking-wider">
+                    {activeWindow?.name || '常规'}
                 </span>
             </div>
-            <div className="flex items-center gap-1">
-                 <span className="text-xs text-white/60 font-bold uppercase mr-1">收益</span>
-                 <span className="text-yellow-400 font-black text-lg">
-                    x{isRageMode ? '2.0' : (activeWindow?.multiplier || 1.0)}
-                 </span>
-            </div>
+            <span className="text-yellow-400 font-black text-xs uppercase">x{activeWindow?.multiplier || '1.0'}</span>
         </div>
       </div>
 
-      {/* Middle Section: Massive Title */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center items-center text-center">
-        <div className="mb-2">
-             <span className={`
-                px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border border-white/20
-                ${taskTypeConfig ? 'bg-white/10 text-white' : 'bg-slate-700 text-slate-400'}
-             `}>
-                {taskTypeConfig ? taskTypeConfig.name : '普通任务'}
-             </span>
-        </div>
-        <motion.h1 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-5xl md:text-6xl font-black text-white leading-tight drop-shadow-2xl mb-6"
-        >
+      {/* Title Area */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center items-center text-center py-2">
+        <span className="px-2 py-0.5 bg-white/10 rounded text-[9px] font-black text-white/70 uppercase tracking-widest border border-white/5 mb-2">
+            {taskTypeConfig?.name || '任务'}
+        </span>
+        <h1 className="text-3xl font-black text-white leading-tight drop-shadow-xl mb-4 line-clamp-2">
             {task.title}
-        </motion.h1>
+        </h1>
         
-        {/* Reward Pill */}
-        <div className="inline-flex items-center gap-3 bg-black/40 px-6 py-2 rounded-2xl border border-white/5 backdrop-blur-sm">
-            <div className="flex flex-col items-center">
-                <span className="text-orange-400 font-black text-3xl animate-pulse">
-                    +{Math.round(task.baseReward.wpDelta * (isRageMode ? 2 : (activeWindow?.multiplier || 1)))}
-                </span>
-                <span className="text-white/50 text-[10px] font-bold uppercase tracking-widest">WP 奖励</span>
+        {/* Compact Rewards */}
+        <div className="flex items-center gap-3 bg-black/20 px-4 py-2 rounded-xl border border-white/5">
+            <div className="text-center">
+                <div className="text-orange-400 font-black text-lg">+{task.baseReward.wpDelta}</div>
+                <div className="text-[8px] text-white/40 font-bold uppercase">WP</div>
             </div>
-             <div className="w-px h-8 bg-white/10"></div>
-            <div className="flex flex-col items-center">
-                 <span className="text-blue-400 font-black text-3xl">
-                    +{Math.round(task.baseReward.expDelta * (isRageMode ? 2 : (activeWindow?.multiplier || 1)))}
-                 </span>
-                 <span className="text-white/50 text-[10px] font-bold uppercase tracking-widest">EXP</span>
+            <div className="w-px h-6 bg-white/10"></div>
+            <div className="text-center">
+                <div className="text-blue-400 font-black text-lg">+{task.baseReward.expDelta}</div>
+                <div className="text-[8px] text-white/40 font-bold uppercase">EXP</div>
             </div>
         </div>
       </div>
 
-      {/* Bottom Section: The ONE Button */}
-      <div className="relative z-10 w-full mb-2">
-        <ClashButton 
-            onClick={onExecute} 
-            variant="primary" 
-            size="large" 
-            className="w-full shadow-[0_0_20px_rgba(234,88,12,0.4)]"
-        >
-            <Zap className="mr-2" fill="currentColor" />
-            {getActionVerb()}
+      {/* Buttons Area */}
+      <div className="relative z-10 flex flex-col gap-2">
+        <ClashButton onClick={onExecute} variant="primary" size="large" className="w-full h-16 text-xl">
+            <Zap size={20} fill="currentColor" />
+            立即启动
         </ClashButton>
-        <p className="text-center text-white/30 text-xs mt-3 font-medium">
-            完成以保持连击 | 当前时段加成生效中
-        </p>
+        <button 
+           onClick={onPostpone}
+           className="text-white/30 hover:text-white/60 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1 py-1"
+        >
+            <SkipForward size={12} /> 延后 (风险+10%)
+        </button>
       </div>
     </motion.div>
   );

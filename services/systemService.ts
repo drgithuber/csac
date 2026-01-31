@@ -11,12 +11,21 @@ export const SystemService = {
     if (!('Notification' in window)) return;
     
     if (Notification.permission === 'granted') {
-      new Notification(title, {
+      // Logic for different vibration patterns based on type is handled in the vibrate function
+      // but Android Notification channels would be set here in a real native app.
+      const n = new Notification(title, {
         body,
-        icon: 'https://picsum.photos/64/64', // Placeholder icon
+        icon: 'https://picsum.photos/64/64', 
         tag: type,
-        silent: false
+        silent: false, // We rely on our own vibration logic or OS defaults
+        requireInteraction: type === 'emergency' // "Heads up" behavior
       });
+      
+      // Web Notification interaction hooks
+      n.onclick = () => {
+          window.focus();
+          n.close();
+      };
     }
   },
 
@@ -25,13 +34,13 @@ export const SystemService = {
 
     switch (pattern) {
       case 'success':
-        navigator.vibrate([50, 50, 100]);
+        navigator.vibrate([50, 50, 100]); // Short + Mid
         break;
       case 'error':
         navigator.vibrate([200, 100, 200]);
         break;
       case 'warning':
-        navigator.vibrate([500]);
+        navigator.vibrate([500]); // Long
         break;
       case 'tick':
         navigator.vibrate(20);
@@ -41,6 +50,7 @@ export const SystemService = {
 
   // Simulating Foreground Service visual indicator
   updateTitle: (activeTaskCount: number) => {
-    document.title = activeTaskCount > 0 ? `(${activeTaskCount}) 执行中...` : '习惯大作战';
+    // Spec: Persistent Notification simulation via title
+    document.title = activeTaskCount > 0 ? `🔥 执行中...` : '习惯大作战';
   }
 };

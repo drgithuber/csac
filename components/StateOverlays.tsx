@@ -91,8 +91,9 @@ export const StateOverlays: React.FC<OverlayProps> = ({
               立刻完成
             </ClashButton>
             <div className="mt-6 text-center">
-                <button onClick={onCancel} className="text-slate-600 font-bold text-sm hover:text-red-400 transition-colors uppercase tracking-widest">
-                    放弃 (增加疲劳)
+                {/* Changed from 'Abandon' to 'Buffer' logic visual */}
+                <button onClick={onCancel} className="text-slate-600 font-bold text-sm hover:text-white transition-colors uppercase tracking-widest flex items-center justify-center gap-2 w-full">
+                    <span>太难了? 降低难度 (Buffer)</span>
                 </button>
             </div>
           </motion.div>
@@ -105,10 +106,8 @@ export const StateOverlays: React.FC<OverlayProps> = ({
             animate={{ scale: 1, opacity: 1 }}
             className="w-full max-w-md text-center relative"
           >
-             {/* Particles (Simplified CSS/Divs) */}
              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <motion.div initial={{ scale: 0, opacity: 1 }} animate={{ scale: 2, opacity: 0 }} transition={{ duration: 0.5 }} className="w-64 h-64 rounded-full bg-yellow-500/30 blur-xl"></motion.div>
-                <motion.div initial={{ scale: 0, opacity: 1 }} animate={{ scale: 3, opacity: 0 }} transition={{ duration: 0.7 }} className="w-48 h-48 rounded-full bg-orange-500/20 blur-xl border-4 border-yellow-300"></motion.div>
              </div>
 
              <motion.div 
@@ -158,17 +157,17 @@ export const StateOverlays: React.FC<OverlayProps> = ({
                 </div>
             </div>
             
-            <h2 className="text-3xl font-black mb-4">只差一点点!</h2>
+            <h2 className="text-3xl font-black mb-4">稍等一下!</h2>
             <p className="text-slate-300 mb-8 font-medium text-lg leading-relaxed">
-              再完成 <span className="text-yellow-400 font-black text-xl">1个任务</span> 就能开启宝箱获得奖励！现在退出将失去连击加成。
+              再完成 <span className="text-yellow-400 font-black text-xl">1个任务</span> 就能开启宝箱获得奖励！
             </p>
             
             <div className="flex flex-col gap-4">
                <ClashButton variant="primary" size="large" onClick={onMomentumContinue} className="w-full">
-                 继续挑战 (推荐)
+                 继续 (高亮)
                </ClashButton>
                <button onClick={onMomentumExit} className="text-slate-500 font-bold py-3 hover:text-white transition-colors">
-                 残忍离开
+                 稍后
                </button>
             </div>
           </motion.div>

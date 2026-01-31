@@ -21,7 +21,9 @@ export enum SystemState {
   FEEDBACK = 'Feedback',
   MOMENTUM = 'Momentum',
   EXIT_HOOK = 'ExitHook',
-  SETTINGS = 'Settings'
+  SETTINGS = 'Settings',
+  BATTLE_PASS = 'BattlePass',
+  STATS = 'Stats'
 }
 
 export enum ChestType {
@@ -37,33 +39,41 @@ export interface Reward {
   unlocks?: string[];
 }
 
-// New: Configurable Task Type Definition
 export interface TaskTypeConfig {
-  id: string; // e.g., 'startup', 'deep_work'
-  name: string; // e.g., '启动型', '攻坚型'
+  id: string; 
+  name: string; 
   colorTheme: 'blue' | 'red' | 'orange' | 'purple' | 'green';
   baseMultiplier: number;
   defaultTimeSeconds: number;
-  actionVerbs: string[]; // ["立即启动", "马上执行"]
+  actionVerbs: string[];
+  // History stats for weighted generation
+  usageCount: number;
+  successCount: number;
+  // Spec 6.1
+  failureStrategy: 'standard' | 'punishing';
+  uiIntensity: 'normal' | 'strong';
+  // Spec: Custom Task Names
+  taskTitles: string[];
 }
 
-// New: Time Window Definition
 export interface TimeWindow {
   id: string;
-  name: string; // e.g., '晨间启动', '深夜修补'
-  startHour: number; // 0-23
-  endHour: number;   // 0-23
+  name: string; 
+  startHour: number;
+  endHour: number;
   multiplier: number;
-  allowedTypes: string[]; // IDs of TaskTypeConfig
+  allowedTypes: string[]; 
   theme: 'sunrise' | 'day' | 'sunset' | 'midnight';
   description: string;
+  // Spec 6.2
+  notificationIntensity: 'low' | 'medium' | 'high';
 }
 
 export interface Task {
   id: string;
   title: string;
-  type: TaskType; // Keeping original enum for backward compat, but logic uses config
-  typeConfigId?: string; // Link to new config
+  type: TaskType; 
+  typeConfigId?: string;
   difficulty: 1 | 2 | 3 | 4 | 5;
   baseReward: Reward;
   timeLimitSeconds?: number;
@@ -73,7 +83,7 @@ export interface Task {
 }
 
 export interface UserState {
-  wp: number; // Will Power
+  wp: number;
   level: number;
   exp: number;
   maxExp: number;
@@ -84,10 +94,20 @@ export interface UserState {
   lastActive: number;
 }
 
+export interface BattlePassReward {
+  level: number;
+  freeReward: string;
+  premiumReward: string;
+  isClaimed: boolean;
+}
+
 export interface BattlePass {
   seasonId: string;
   level: number;
+  currentExp: number;
+  expPerLevel: number;
   seasonEndsAt: number;
+  rewards: BattlePassReward[];
 }
 
 export interface Chest {

@@ -49,7 +49,12 @@ export const DEFAULT_TASK_TYPES: TaskTypeConfig[] = [
     colorTheme: 'green',
     baseMultiplier: 1.0,
     defaultTimeSeconds: 60,
-    actionVerbs: ['立即启动', '瞬间激活', '唤醒状态']
+    actionVerbs: ['立即启动', '瞬间激活', '唤醒状态'],
+    usageCount: 0,
+    successCount: 0,
+    failureStrategy: 'standard',
+    uiIntensity: 'normal',
+    taskTitles: ['整理桌面', '喝一杯水', '列出今日计划', '深呼吸1分钟']
   },
   {
     id: 'deep_work',
@@ -57,7 +62,12 @@ export const DEFAULT_TASK_TYPES: TaskTypeConfig[] = [
     colorTheme: 'blue',
     baseMultiplier: 1.5,
     defaultTimeSeconds: 1500, // 25 min
-    actionVerbs: ['潜入心流', '专注执行', '核心爆破']
+    actionVerbs: ['潜入心流', '专注执行', '核心爆破'],
+    usageCount: 0,
+    successCount: 0,
+    failureStrategy: 'standard',
+    uiIntensity: 'normal',
+    taskTitles: ['专注工作25分钟', '阅读专业书籍', '解决一个难题', '写作500字']
   },
   {
     id: 'recovery',
@@ -65,7 +75,12 @@ export const DEFAULT_TASK_TYPES: TaskTypeConfig[] = [
     colorTheme: 'purple',
     baseMultiplier: 0.8, // Lower base, but usually appears in high multiplier windows
     defaultTimeSeconds: 300,
-    actionVerbs: ['立即挽回', '止损修复', '重回正轨']
+    actionVerbs: ['立即挽回', '止损修复', '重回正轨'],
+    usageCount: 0,
+    successCount: 0,
+    failureStrategy: 'punishing',
+    uiIntensity: 'strong',
+    taskTitles: ['放下手机', '离开座位活动', '关闭无关网页', '冥想5分钟']
   },
   {
     id: 'health',
@@ -73,7 +88,12 @@ export const DEFAULT_TASK_TYPES: TaskTypeConfig[] = [
     colorTheme: 'orange',
     baseMultiplier: 1.2,
     defaultTimeSeconds: 120,
-    actionVerbs: ['补充能量', '生存必须', '立刻执行']
+    actionVerbs: ['补充能量', '生存必须', '立刻执行'],
+    usageCount: 0,
+    successCount: 0,
+    failureStrategy: 'standard',
+    uiIntensity: 'normal',
+    taskTitles: ['做10个俯卧撑', '吃水果', '远眺窗外', '颈椎操']
   }
 ];
 
@@ -86,7 +106,8 @@ export const DEFAULT_TIME_WINDOWS: TimeWindow[] = [
     multiplier: 1.2,
     allowedTypes: ['startup', 'health'],
     theme: 'sunrise',
-    description: '低阻力 · 高唤醒'
+    description: '低阻力 · 高唤醒',
+    notificationIntensity: 'low'
   },
   {
     id: 'day_focus',
@@ -96,7 +117,8 @@ export const DEFAULT_TIME_WINDOWS: TimeWindow[] = [
     multiplier: 1.5,
     allowedTypes: ['deep_work', 'health'],
     theme: 'day',
-    description: '高产出 · 高回报'
+    description: '高产出 · 高回报',
+    notificationIntensity: 'medium'
   },
   {
     id: 'evening_wind',
@@ -106,7 +128,8 @@ export const DEFAULT_TIME_WINDOWS: TimeWindow[] = [
     multiplier: 1.0,
     allowedTypes: ['health', 'startup'], // Preparing for next day
     theme: 'sunset',
-    description: '归档 · 准备'
+    description: '归档 · 准备',
+    notificationIntensity: 'low'
   },
   {
     id: 'midnight_rescue',
@@ -116,6 +139,7 @@ export const DEFAULT_TIME_WINDOWS: TimeWindow[] = [
     multiplier: 2.0, // High incentive to finish and sleep
     allowedTypes: ['recovery'],
     theme: 'midnight',
-    description: '最后机会 · 防止中断'
+    description: '最后机会 · 防止中断',
+    notificationIntensity: 'high'
   }
 ];
